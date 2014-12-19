@@ -4,8 +4,6 @@ class PackagesController < ApplicationController
   include ActiveMerchant::Shipping
   def rates
 
-
-
     packages = [
       Package.new(
       100,                        # 100 grams
@@ -20,26 +18,36 @@ class PackagesController < ApplicationController
     ]
 
     # You live in Beverly Hills, he lives in Ottawa
-    origin = Location.new(      :country => 'US',
-    :state => 'WA',
-    :city => 'Seattle',
-    :zip => '98103')
+    origin = Location.new(
+    :country  => params["origin"]["country"],
+    :state    => params["origin"]["state"],
+    :city     => params["origin"]["city"],
+    :zip      => params["origin"]["zip"])
 
-    destination = Location.new( :country => 'US',
-    :state => params["destination"]["state"],
-    :city => params["destination"]["city"],
-    :zip => params["destination"]["zip"])
+    destination = Location.new(
+    :country  => params["destination"]["country"],
+    :state    => params["destination"]["state"],
+    :city     => params["destination"]["city"],
+    :zip      => params["destination"]["zip"])
 
     # Find out how much it'll be.
-    # ups = UPS.new(:login => 'auntjudy', :password => 'secret', :key => 'xml-access-key')
-    # response = ups.find_rates(origin, destination, packages)
+    response_hash = {}
 
-    # ups_rates = response.rates.sort_by(&:price).collect {|rate| [rate.service_name, rate.price]}
+    ups       = UPS.new(:login => ENV["UPS_LOGIN"], :password => ENV["UPS_PASSWORD"], :key => ENV["UPS_KEY"])
+    response  = ups.find_rates(origin, destination, packages)
+    response_hash[:ups_rates] = response.rates.sort_by(&:price).collect {|rate| [rate.service_name, rate.price]}
     # => [["UPS Standard", 3936],
     #     ["UPS Worldwide Expedited", 8682],
     #     ["UPS Saver", 9348],
     #     ["UPS Express", 9702],
     #     ["UPS Worldwide Express Plus", 14502]]
+
+    fedex = FedEx.new(:login => ENV["FEDEX_LOGIN"], :password => ENV["FEDEX_PASSWORD"], key: ENV["FEDEX_KEY"], account: ENV["FEDEX_ACCOUNT"], :test => true)
+    response = fedex.find_rates(origin, destination, packages)
+    response_hash[:fedex_rates] = response.rates.sort_by(&:price).collect {|rate| [rate.service_name, rate.price]}
+    
+    render json: response_hash
+
 
     # Check out USPS for comparison...
     # usps = USPS.new(:login => 'developer-key')
@@ -58,11 +66,11 @@ class PackagesController < ApplicationController
 
       # make take params of the request from the client
       # send to the fedex api to get the quote
-
-      fedex = FedEx.new(:login => ENV["FEDEX_LOGIN"], :password => ENV["FEDEX_PASSWORD"], key: ENV["FEDEX_KEY"], account: ENV["FEDEX_ACCOUNT"], :test => true)
-      puts fedex.inspect
-      response = fedex.find_rates(origin, destination, packages)
-      render json: response
+      #
+      # fedex = FedEx.new(:login => ENV["FEDEX_LOGIN"], :password => ENV["FEDEX_PASSWORD"], key: ENV["FEDEX_KEY"], account: ENV["FEDEX_ACCOUNT"], :test => true)
+      # response = fedex.find_rates(origin, destination, packages)
+      # fedex_rates = response.rates.sort_by(&:price).collect {|rate| [rate.service_name, rate.price]}
+      # render json: fedex_rates
 
 
       #tracking_info = fedex.find_tracking_info('11111111111', :carrier_code => 'fedex_ground') # Ground package
